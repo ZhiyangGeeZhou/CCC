@@ -318,7 +318,7 @@ PCC = function(y.old, x.old, y.new = NULL, x.new = NULL, timePts, pars){
     )$fd$coefs)
   }
   
-  for (i in 1:ncol(pars)){ # in case there are multi optimizers
+  for (i in 1:ncol(pars)){
     p = pars[1, i]
     theta = pars[2, i]
     
@@ -392,7 +392,7 @@ PLCC = function(y.old, x.old, y.new = NULL, x.new = NULL, timePts, pars){
     )$fd$coefs)
   }
 
-  for (i in 1:length(pars)){ # in case there are multi optimizers
+  for (i in 1:length(pars)){
     p = pars[i]
     
     simpls.coef = simpls(y = matrix(y.old, ncol = 1), x = C.old.diff %*% Whalf, ncomp = p)$coef
