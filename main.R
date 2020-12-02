@@ -11,19 +11,19 @@ library(fda.usc)
 
 #### global setting
 set.seed(1)
-RR = 200L # number of replication
+RR = 200 # number of replication
 prop.train = .8 # proportion of whole dataset left for training
 ninitial = 1 # number of initial values used in the optimization for CCC
 epsilon = 1e-9 # small non-zero values used in @function CCC 
 nfold = 5 # numbe of folds for CV
-simu = 1 # 1 for simulation, 0 for real data
-case.no = 2
+simu = 0 # 1 for simulation, 0 for real data
+case.no = 3
 rho = 10 # signal-to-noise ratio (SNR) for simulation only
 
 #### Simulation
 
 ### communal setting for simulation
-TT = 100 # total number of time points
+TT = 101 # total number of time points
 N = 200 # number of curves
 pi0 = .8 # prior for population 0
 J = 5 # number of eigenfunctions considered
@@ -33,7 +33,7 @@ distri = 3 # 1 for normal, 2 for (chi2(4)-4)/8^.5, 3 for exp(1)-1
 
 if (simu == 1 & case.no == 1) {
 
-  timePts = (0:TT)/TT # time points evaluated for each curve
+  timePts = seq(from = 0, to = 1, length.out = TT) # time points evaluated for each curve
   
   Lambda.0 = c(200, 100, 1, .2, .1)
   Lambda.1 = Lambda.0
@@ -62,7 +62,7 @@ if (simu == 1 & case.no == 1) {
 ## scene II: difference arises late with SNR rho
 
 if (simu == 1 & case.no == 2){
-  timePts = (0:TT)/TT # time points evaluated for each curve
+  timePts = seq(from = 0, to = 1, length.out = TT) # time points evaluated for each curve
   Lambda.0 = c(200, 100, 1, .2, .1)
   Lambda.1 = rev(Lambda.0)
   names(Lambda.0) = names(Lambda.1) = c('1', '2', '3', '4', '5')
@@ -95,7 +95,7 @@ if (simu == 1 & case.no == 2){
 if (simu == 0 & case.no == 1){
   meat = t(matrix(t(as.matrix(read.table("data/meat.txt"))), ncol=240)); x = meat[, 1:100]
   y = matrix(as.numeric(meat[, 125]<16)) #protein
-  timePts = seq(from = 0, to = 1, length.out = ncol(x))
+  timePts = 1:ncol(x)
 }
 
 if (simu == 0 & case.no == 2){
@@ -122,18 +122,16 @@ if (simu == 0 & case.no == 3){
 #######################################################################
 
 # Dangerous! clear existing result
-errRate.CCCL.rs = NULL; errRate.CCCQ.rs = NULL; alpha.CCCQ.rs = NULL; run.time.rs = NULL
-errRate.CCCL.fs = NULL; errRate.CCCQ.fs = NULL; alpha.CCCQ.fs = NULL; run.time.fs = NULL
-errRate.PLCC = NULL; run.time.PLCC = NULL
-errRate.PCC = NULL; run.time.PCC = NULL
+errRate.CCCL.rs = NULL; alpha.CCCL.rs = NULL; p.CCCL.rs = NULL
+errRate.CCCQ.rs = NULL; alpha.CCCQ.rs = NULL; p.CCCQ.rs = NULL; run.time.rs = NULL
+errRate.PLCC = NULL; p.PLCC = NULL; run.time.PLCC = NULL
+errRate.PCC = NULL; p.PCC = NULL; run.time.PCC = NULL
 errRate.logit = NULL; run.time.logit = NULL
 errRate.nb = NULL; run.time.nb = NULL
 
 # Check current progress
 check.CCCL.rs = ifelse(is.null(errRate.CCCL.rs), 0, length(errRate.CCCL.rs))
 check.CCCQ.rs = ifelse(is.null(errRate.CCCQ.rs), 0, length(errRate.CCCQ.rs))
-check.CCCL.fs = ifelse(is.null(errRate.CCCL.fs), 0, length(errRate.CCCL.fs))
-check.CCCQ.fs = ifelse(is.null(errRate.CCCQ.fs), 0, length(errRate.CCCQ.fs))
 check.PLCC = ifelse(is.null(errRate.PLCC), 0, length(errRate.PLCC))
 check.PCC = ifelse(is.null(errRate.PCC), 0, length(errRate.PCC))
 check.logit = ifelse(is.null(errRate.logit), 0, length(errRate.logit))
@@ -151,10 +149,10 @@ for (R in 1:RR){
   pMin = 1 # min number of components
   Alpha = c(seq(from = 0, to = .9, length.out = 10), .999) # supervision parameters for CCC
   Theta = c(0) # penalty for smoothness for PCC
-  parsPCC = t(expand.grid(pMin:pMax, Theta)) # combinations of candidate parameters for PCC
-  parsPLCC = pMin:pMax # candidate parameters for PLCC
-  pars = list(parsPCC, parsPLCC)
+  pars = rep(list(NULL), 2)
   names(pars) = c('PCC', 'PLCC')
+  pars$PCC = t(expand.grid(pMin:pMax, Theta)) # combinations of candidate parameters for PCC
+  pars$PLCC = pMin:pMax # candidate parameters for PLCC
 
   if (!simu) {
     samp.idx = sample(1:nrow(x), round(nrow(x) * prop.train))
@@ -170,26 +168,23 @@ for (R in 1:RR){
     y.new = matrix(y[[R]][-samp.idx,])
   }
   
-  if (R > min(check.CCCL.rs, check.CCCQ.rs, check.CCCL.fs, check.CCCQ.fs)){
+  if (R > min(check.CCCL.rs, check.CCCQ.rs)){
     ptm0 = proc.time()[3]
     result.rs = CCC(y.old, x.old, y.new, x.new, timePts, Alpha, pMax, pMin, random.search = T)
     errRate.CCCL.rs = c(errRate.CCCL.rs, mean(result.rs$errPredOpt.CCCL, na.rm = T))
     errRate.CCCQ.rs = c(errRate.CCCQ.rs, mean(result.rs$errPredOpt.CCCQ, na.rm = T))
-    alpha.CCCQ.rs = c(alpha.CCCQ.rs, result.rs$parsOpt.CCCQ[, 1])
+    alpha.CCCL.rs = c(alpha.CCCL.rs, mean(result.rs$parsOpt.CCCL[, 1], na.rm = T))
+    alpha.CCCQ.rs = c(alpha.CCCQ.rs, mean(result.rs$parsOpt.CCCQ[, 1], na.rm = T))
+    p.CCCL.rs = c(p.CCCL.rs, result.rs$parsOpt.CCCL[, 2])
+    p.CCCQ.rs = c(p.CCCQ.rs, result.rs$parsOpt.CCCQ[, 2])
     run.time.rs[R] = proc.time()[3] - ptm0
-    
-    ptm0 = proc.time()[3]
-    result.fs = CCC(y.old, x.old, y.new, x.new, timePts, Alpha, pMax, pMin, random.search = F)
-    errRate.CCCL.fs = c(errRate.CCCL.fs, mean(result.fs$errPredOpt.CCCL, na.rm = T))
-    errRate.CCCQ.fs = c(errRate.CCCQ.fs, mean(result.fs$errPredOpt.CCCQ, na.rm = T))
-    alpha.CCCQ.fs = c(alpha.CCCQ.fs, result.fs$parsOpt.CCCQ[, 1])
-    run.time.fs[R] = proc.time()[3] - ptm0
   }
   
   if (R > check.PLCC) {
     ptm0 = proc.time()[3]
     result = crossVali(y.old, x.old, y.new, x.new, timePts, nfold = 5, method = c('PLCC'), pars)
     errRate.PLCC = c(errRate.PLCC, mean(result$errPred$PLCC, na.rm = T))
+    p.PLCC = c(p.PLCC, result$parsOpt$PLCC)
     run.time.PLCC[R] = proc.time()[3] - ptm0
   }
   
@@ -197,6 +192,7 @@ for (R in 1:RR){
     ptm0 = proc.time()[3]
     result = crossVali(y.old, x.old, y.new, x.new, timePts, nfold = 5, method = c('PCC'), pars)
     errRate.PCC = c(errRate.PCC, mean(result$errPred$PCC, na.rm = T))
+    p.PCC = c(p.PCC, result$parsOpt$PCC[1, ])
     run.time.PCC[R] = proc.time()[3] - ptm0
   }
   
@@ -254,8 +250,6 @@ for (R in 1:RR){
 errRateLst = list(
   errRate.CCCL.rs
   ,errRate.CCCQ.rs
-  # ,errRate.CCCL.fs
-  # ,errRate.CCCQ.fs
   ,errRate.PLCC
   ,errRate.PCC
   ,errRate.logit
@@ -264,8 +258,6 @@ errRateLst = list(
 names(errRateLst) = c(
   'CCC-L'
   ,'CCC-Q'
-  # ,'CCC-L.FG'
-  # ,'CCC-Q.FG'
   ,'PLCC'
   ,'PCC'
   ,'Logit'
@@ -273,6 +265,4 @@ names(errRateLst) = c(
 )
 
 errMat = creatErrMat(errRateLst)
-round(apply(errMat, 2, sd, na.rm = T), digits = 2)
-round(apply(errMat, 2, mean, na.rm = T), digits = 2)
 boxplot.error.rate(RR, errMat)
