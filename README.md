@@ -7,5 +7,4 @@
 
 ## Reference 
 **Zhou, Z.** & P. Sang (2020). Continuum centroid classifier for functional data. _Canadian Journal of Statistics_, **50**, 200--220.
-[arXiv:2102.06130](https://arxiv.org/abs/2102.06130)
 [doi:10.1002/cjs.11624](https://dx.doi.org/10.1002/cjs.11624)
